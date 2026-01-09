@@ -5,13 +5,6 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { LAMPORTS_PER_SOL, VersionedTransaction } from '@solana/web3.js';
 import { useEffect, useState } from 'react';
 
-const POPULAR_TOKENS = [
-  { symbol: 'SOL', mint: 'So11111111111111111111111111111111111111112', decimals: 9 },
-  { symbol: 'USDC', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', decimals: 6 },
-  { symbol: 'BONK', mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', decimals: 5 },
-  { symbol: 'WIF', mint: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', decimals: 6 },
-];
-
 interface PumpCoin {
   mint: string;
   name: string;
@@ -26,12 +19,28 @@ interface PumpCoin {
   virtual_token_reserves: number;
 }
 
+interface Challenge {
+  id: number;
+  name: string;
+  requiredProfit: number;
+  maxDrawdown: number;
+  accountSize: number;
+  profitSplit: number;
+  locked: boolean;
+}
+
+const CHALLENGES: Challenge[] = [
+  { id: 1, name: 'Demo Challenge', requiredProfit: 0, maxDrawdown: 0, accountSize: 0, profitSplit: 0, locked: false },
+  { id: 2, name: 'Phase 1', requiredProfit: 20, maxDrawdown: 10, accountSize: 100, profitSplit: 50, locked: true },
+  { id: 3, name: 'Phase 2', requiredProfit: 15, maxDrawdown: 8, accountSize: 500, profitSplit: 70, locked: true },
+  { id: 4, name: 'Funded Trader', requiredProfit: 10, maxDrawdown: 12, accountSize: 5000, profitSplit: 80, locked: true },
+];
+
 export default function TradingTerminal() {
   const { connection } = useConnection();
   const { publicKey, signTransaction } = useWallet();
   const [balance, setBalance] = useState<number>(0);
-  const [inputToken, setInputToken] = useState(POPULAR_TOKENS[0]);
-  const [outputToken, setOutputToken] = useState(POPULAR_TOKENS[1]);
+  const [selectedCoin, setSelectedCoin] = useState<PumpCoin | null>(null);
   const [amount, setAmount] = useState('');
   const [quote, setQuote] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -40,6 +49,18 @@ export default function TradingTerminal() {
   // Pump.fun state
   const [pumpCoins, setPumpCoins] = useState<PumpCoin[]>([]);
   const [activeTab, setActiveTab] = useState<'new' | 'graduating' | 'graduated'>('new');
+  const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
+  
+  // Challenge state
+  const [currentChallenge, setCurrentChallenge] = useState(CHALLENGES[0]);
+  const [challengeStats, setChallengeStats] = useState({
+    startBalance: 0,
+    currentBalance: 0,
+    totalPnL: 0,
+    maxDrawdown: 0,
+    trades: 0,
+    winRate: 0
+  });
 
   useEffect(() => {
     if (publicKey) {
@@ -62,32 +83,38 @@ export default function TradingTerminal() {
     };
 
     fetchPumpCoins();
-    const interval = setInterval(fetchPumpCoins, 10000); // Refresh every 10 seconds
+    const interval = setInterval(fetchPumpCoins, 10000);
     return () => clearInterval(interval);
   }, []);
 
   const getQuote = async () => {
-    if (!amount || parseFloat(amount) <= 0) return;
+    if (!amount || parseFloat(amount) <= 0 || !selectedCoin) return;
     
     setLoading(true);
     setStatus('Getting quote...');
     
     try {
-      const amountLamports = Math.floor(parseFloat(amount) * Math.pow(10, inputToken.decimals));
+      const solMint = 'So11111111111111111111111111111111111111112';
+      const inputMint = tradeMode === 'buy' ? solMint : selectedCoin.mint;
+      const outputMint = tradeMode === 'buy' ? selectedCoin.mint : solMint;
+      const amountLamports = Math.floor(parseFloat(amount) * 1e9);
       
       const response = await fetch('/api/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          inputMint: inputToken.mint,
-          outputMint: outputToken.mint,
+          inputMint,
+          outputMint,
           amount: amountLamports,
         }),
       });
 
       const data = await response.json();
       setQuote(data);
-      setStatus(`Quote: ${(data.outAmount / Math.pow(10, outputToken.decimals)).toFixed(6)} ${outputToken.symbol}`);
+      const outputAmount = tradeMode === 'buy' 
+        ? (data.outAmount / 1e6).toFixed(2)
+        : (data.outAmount / 1e9).toFixed(4);
+      setStatus(`Quote: ${outputAmount} ${tradeMode === 'buy' ? selectedCoin.symbol : 'SOL'}`);
     } catch (error) {
       setStatus('Error getting quote');
       console.error(error);
@@ -133,6 +160,12 @@ export default function TradingTerminal() {
       
       const newBalance = await connection.getBalance(publicKey);
       setBalance(newBalance / LAMPORTS_PER_SOL);
+      
+      // Update challenge stats
+      setChallengeStats(prev => ({
+        ...prev,
+        trades: prev.trades + 1
+      }));
     } catch (error: any) {
       setStatus(`Error: ${error.message}`);
       console.error(error);
@@ -141,26 +174,19 @@ export default function TradingTerminal() {
     }
   };
 
-  const swapTokens = () => {
-    const temp = inputToken;
-    setInputToken(outputToken);
-    setOutputToken(temp);
-    setQuote(null);
-  };
-
   const getBondingProgress = (coin: PumpCoin) => {
-    const GRADUATION_THRESHOLD = 85; // SOL needed to graduate
+    const GRADUATION_THRESHOLD = 85;
     const currentSOL = coin.virtual_sol_reserves / 1e9;
     return Math.min((currentSOL / GRADUATION_THRESHOLD) * 100, 100);
   };
 
   const getFilteredCoins = () => {
     if (activeTab === 'new') {
-      return pumpCoins.filter(c => !c.complete).slice(0, 10);
+      return pumpCoins.filter(c => !c.complete).slice(0, 20);
     } else if (activeTab === 'graduating') {
-      return pumpCoins.filter(c => !c.complete && getBondingProgress(c) > 70).slice(0, 10);
+      return pumpCoins.filter(c => !c.complete && getBondingProgress(c) > 70).slice(0, 20);
     } else {
-      return pumpCoins.filter(c => c.complete).slice(0, 10);
+      return pumpCoins.filter(c => c.complete).slice(0, 20);
     }
   };
 
@@ -171,9 +197,9 @@ export default function TradingTerminal() {
     const hours = Math.floor(diff / 3600000);
     
     if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    return `${Math.floor(hours / 24)}d`;
   };
 
   const formatMarketCap = (mc: number) => {
@@ -183,22 +209,34 @@ export default function TradingTerminal() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Top Nav */}
-      <div className="border-b border-gray-800 bg-gray-900/50 backdrop-blur">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <h1 className="text-xl font-bold">MEMECOIN TERMINAL</h1>
-            <nav className="flex gap-4 text-sm">
-              <button className="text-purple-400 font-semibold">Trade</button>
-              <button className="text-gray-500 hover:text-gray-300">Portfolio</button>
-              <button className="text-gray-500 hover:text-gray-300">Challenges</button>
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      {/* Top Nav - Axiom Style */}
+      <div className="border-b border-gray-800 bg-black/80 backdrop-blur-xl sticky top-0 z-50">
+        <div className="px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center font-bold">
+                PF
+              </div>
+              <h1 className="text-xl font-bold">Pump Firm</h1>
+            </div>
+            <nav className="flex gap-1">
+              <button className="px-4 py-1.5 bg-purple-600/20 text-purple-400 rounded-lg text-sm font-medium">
+                Trade
+              </button>
+              <button className="px-4 py-1.5 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg text-sm font-medium">
+                Portfolio
+              </button>
+              <button className="px-4 py-1.5 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg text-sm font-medium">
+                Leaderboard
+              </button>
             </nav>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {publicKey && (
-              <div className="text-sm text-gray-400">
-                {balance.toFixed(2)} SOL
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-900 rounded-lg border border-gray-800">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-sm font-medium">{balance.toFixed(2)} SOL</span>
               </div>
             )}
             <WalletMultiButton />
@@ -206,263 +244,330 @@ export default function TradingTerminal() {
         </div>
       </div>
 
-      {/* 3 Column Layout */}
-      <div className="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-60px)]">
+      {/* Main Grid - Axiom Layout */}
+      <div className="grid grid-cols-12 gap-3 p-3 h-[calc(100vh-65px)]">
         
-        {/* LEFT COLUMN - Pump.fun Tokens */}
-        <div className="col-span-3 space-y-4 overflow-y-auto">
-          {/* Pump.fun Tabs */}
-          <div className="bg-gray-900 rounded-lg border border-gray-800">
-            <div className="flex border-b border-gray-800">
+        {/* LEFT - Token Feed */}
+        <div className="col-span-3 flex flex-col gap-3 overflow-hidden">
+          {/* Tabs */}
+          <div className="bg-[#111] rounded-xl border border-gray-800 overflow-hidden">
+            <div className="grid grid-cols-3 bg-black/50">
               <button
                 onClick={() => setActiveTab('new')}
-                className={`flex-1 py-2 text-xs font-semibold ${
-                  activeTab === 'new' ? 'text-purple-400 border-b-2 border-purple-400' : 'text-gray-500'
+                className={`py-2.5 text-xs font-bold transition-all ${
+                  activeTab === 'new' 
+                    ? 'bg-gradient-to-b from-purple-600 to-purple-700 text-white' 
+                    : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
-                NEW 🔥
+                NEW
               </button>
               <button
                 onClick={() => setActiveTab('graduating')}
-                className={`flex-1 py-2 text-xs font-semibold ${
-                  activeTab === 'graduating' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-gray-500'
+                className={`py-2.5 text-xs font-bold transition-all ${
+                  activeTab === 'graduating' 
+                    ? 'bg-gradient-to-b from-yellow-600 to-yellow-700 text-white' 
+                    : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
-                GRADUATING 🚀
+                GRADUATING
               </button>
               <button
                 onClick={() => setActiveTab('graduated')}
-                className={`flex-1 py-2 text-xs font-semibold ${
-                  activeTab === 'graduated' ? 'text-green-400 border-b-2 border-green-400' : 'text-gray-500'
+                className={`py-2.5 text-xs font-bold transition-all ${
+                  activeTab === 'graduated' 
+                    ? 'bg-gradient-to-b from-green-600 to-green-700 text-white' 
+                    : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
-                GRADUATED ✅
+                GRADUATED
               </button>
             </div>
+          </div>
 
-            <div className="p-2 space-y-1 max-h-[600px] overflow-y-auto">
+          {/* Token List */}
+          <div className="flex-1 bg-[#111] rounded-xl border border-gray-800 overflow-hidden">
+            <div className="overflow-y-auto h-full custom-scrollbar">
               {getFilteredCoins().map((coin) => (
                 <button
                   key={coin.mint}
-                  onClick={() => {
-                    setInputToken({
-                      symbol: coin.symbol,
-                      mint: coin.mint,
-                      decimals: 6
-                    });
-                    setQuote(null);
-                  }}
-                  className="w-full p-2 hover:bg-gray-800 rounded transition text-left"
+                  onClick={() => setSelectedCoin(coin)}
+                  className={`w-full p-3 border-b border-gray-800/50 hover:bg-gray-900/50 transition-all ${
+                    selectedCoin?.mint === coin.mint ? 'bg-purple-900/20 border-l-2 border-l-purple-500' : ''
+                  }`}
                 >
                   <div className="flex items-start gap-2">
                     <img 
                       src={coin.image_uri} 
                       alt={coin.name}
-                      className="w-10 h-10 rounded-full bg-gray-800"
+                      className="w-10 h-10 rounded-lg bg-gray-800 object-cover"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect fill="%23374151" width="100" height="100"/%3E%3C/svg%3E';
                       }}
                     />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-sm truncate">{coin.name}</span>
-                        <span className="text-xs text-gray-500">{formatTimeAgo(coin.created_timestamp)}</span>
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-sm truncate">{coin.symbol}</span>
+                        <span className="text-xs text-gray-500 flex-shrink-0">{formatTimeAgo(coin.created_timestamp)}</span>
                       </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-gray-400">${coin.symbol}</span>
-                        <span className="text-xs font-semibold text-green-400">{formatMarketCap(coin.market_cap)}</span>
+                      <div className="flex items-center justify-between gap-2 mt-0.5">
+                        <span className="text-xs text-gray-400 truncate">{coin.name}</span>
+                        <span className="text-xs font-bold text-green-400 flex-shrink-0">{formatMarketCap(coin.market_cap)}</span>
                       </div>
                       {!coin.complete && (
                         <div className="mt-2">
                           <div className="flex justify-between text-xs mb-1">
-                            <span className="text-gray-500">Bonding</span>
-                            <span className="text-purple-400">{getBondingProgress(coin).toFixed(0)}%</span>
+                            <span className="text-gray-500">Progress</span>
+                            <span className={`font-bold ${getBondingProgress(coin) > 90 ? 'text-yellow-400' : 'text-purple-400'}`}>
+                              {getBondingProgress(coin).toFixed(0)}%
+                            </span>
                           </div>
-                          <div className="w-full bg-gray-800 rounded-full h-1">
+                          <div className="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden">
                             <div 
-                              className="bg-gradient-to-r from-purple-500 to-pink-500 h-1 rounded-full transition-all"
+                              className={`h-1.5 rounded-full transition-all ${
+                                getBondingProgress(coin) > 90 
+                                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500' 
+                                  : 'bg-gradient-to-r from-purple-500 to-pink-500'
+                              }`}
                               style={{width: `${getBondingProgress(coin)}%`}}
                             ></div>
                           </div>
                         </div>
                       )}
                       {coin.complete && (
-                        <div className="mt-1 text-xs text-green-400 flex items-center gap-1">
-                          ✅ Graduated to Raydium
+                        <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 border border-green-500/20 rounded text-xs text-green-400 font-medium">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          Raydium
                         </div>
                       )}
                     </div>
                   </div>
                 </button>
               ))}
-              
-              {getFilteredCoins().length === 0 && (
-                <div className="text-center py-8 text-gray-500 text-sm">
-                  No coins in this category
+            </div>
+          </div>
+        </div>
+
+        {/* CENTER - Chart */}
+        <div className="col-span-6 bg-[#111] rounded-xl border border-gray-800 flex flex-col">
+          {selectedCoin ? (
+            <>
+              <div className="p-4 border-b border-gray-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <img src={selectedCoin.image_uri} alt={selectedCoin.name} className="w-12 h-12 rounded-lg" />
+                    <div>
+                      <h2 className="text-2xl font-bold">{selectedCoin.symbol}</h2>
+                      <p className="text-sm text-gray-400">{selectedCoin.name}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {['5m', '15m', '1h', '4h', '1d'].map(tf => (
+                      <button key={tf} className="px-3 py-1 text-xs bg-gray-900 hover:bg-gray-800 rounded font-medium">
+                        {tf}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              )}
+              </div>
+              <div className="flex-1 bg-[#0a0a0a] flex items-center justify-center">
+                <div className="text-center text-gray-600">
+                  <svg className="w-20 h-20 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                  </svg>
+                  <p className="text-sm font-medium">TradingView Chart</p>
+                  <p className="text-xs mt-1">Coming Soon</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center text-gray-600">
+                <svg className="w-20 h-20 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                </svg>
+                <p className="text-sm font-medium">Select a token to view chart</p>
+              </div>
             </div>
-          </div>
-
-          {/* Prop Challenge */}
-          <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
-            <h3 className="text-sm font-semibold mb-3 text-gray-400">PROP CHALLENGE</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-400">Current Level</span>
-                <span className="text-sm font-semibold">Demo</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-400">Progress</span>
-                <span className="text-sm font-semibold">0%</span>
-              </div>
-              <div className="w-full bg-gray-800 rounded-full h-2">
-                <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full" style={{width: '0%'}}></div>
-              </div>
-              <button className="w-full bg-purple-600 hover:bg-purple-700 py-2 rounded-lg text-sm font-semibold mt-2">
-                Start Challenge
-              </button>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* CENTER COLUMN - Chart */}
-        <div className="col-span-6 bg-gray-900 rounded-lg border border-gray-800 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-2xl font-bold">{inputToken.symbol}/SOL</h2>
-              <div className="text-sm text-gray-400">Price Chart</div>
+        {/* RIGHT - Trade + Challenge */}
+        <div className="col-span-3 flex flex-col gap-3 overflow-y-auto">
+          {/* Challenge Status */}
+          <div className="bg-[#111] rounded-xl border border-gray-800 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-gray-400 uppercase">Prop Challenge</h3>
+              <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded font-bold">
+                {currentChallenge.name}
+              </span>
             </div>
-            <div className="flex gap-2">
-              <button className="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded">1H</button>
-              <button className="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded">4H</button>
-              <button className="px-3 py-1 text-xs bg-purple-600 rounded">1D</button>
-              <button className="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded">1W</button>
-            </div>
+            
+            {currentChallenge.id === 1 ? (
+              <div className="space-y-3">
+                <div className="text-center py-4">
+                  <div className="text-3xl font-bold mb-1">Demo Mode</div>
+                  <p className="text-xs text-gray-400">Practice trading risk-free</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-center">
+                  <div className="bg-gray-900/50 rounded-lg p-2">
+                    <div className="text-xs text-gray-500">Trades</div>
+                    <div className="text-lg font-bold">{challengeStats.trades}</div>
+                  </div>
+                  <div className="bg-gray-900/50 rounded-lg p-2">
+                    <div className="text-xs text-gray-500">Win Rate</div>
+                    <div className="text-lg font-bold">{challengeStats.winRate}%</div>
+                  </div>
+                </div>
+                <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 py-2.5 rounded-lg text-sm font-bold">
+                  Start Phase 1 Challenge
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-500">Target Profit</div>
+                    <div className="text-lg font-bold text-green-400">+{currentChallenge.requiredProfit}%</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-gray-500">Max DD</div>
+                    <div className="text-lg font-bold text-red-400">-{currentChallenge.maxDrawdown}%</div>
+                  </div>
+                </div>
+                <div className="bg-gray-900/50 rounded-lg p-2">
+                  <div className="text-xs text-gray-500 mb-1">Progress</div>
+                  <div className="w-full bg-gray-800 rounded-full h-2 mb-1">
+                    <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full" style={{width: '0%'}}></div>
+                  </div>
+                  <div className="text-xs text-right text-gray-400">0%</div>
+                </div>
+              </div>
+            )}
           </div>
-          
-          {/* Placeholder Chart */}
-          <div className="h-[calc(100%-80px)] bg-gray-950 rounded-lg border border-gray-800 flex items-center justify-center">
-            <div className="text-center text-gray-600">
-              <svg className="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-              </svg>
-              <p className="text-sm">Price chart coming soon</p>
-              <p className="text-xs mt-1">Live TradingView integration</p>
-            </div>
-          </div>
-        </div>
 
-        {/* RIGHT COLUMN - Trading Panel */}
-        <div className="col-span-3 space-y-4 overflow-y-auto">
           {/* Trade Panel */}
-          <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
-            <div className="flex gap-2 mb-4">
-              <button className="flex-1 bg-green-600 hover:bg-green-700 py-2 rounded text-sm font-semibold">
+          <div className="bg-[#111] rounded-xl border border-gray-800 p-4 flex-1">
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <button
+                onClick={() => setTradeMode('buy')}
+                className={`py-2 rounded-lg text-sm font-bold transition-all ${
+                  tradeMode === 'buy' 
+                    ? 'bg-gradient-to-b from-green-600 to-green-700 text-white' 
+                    : 'bg-gray-900 text-gray-400 hover:text-white'
+                }`}
+              >
                 BUY
               </button>
-              <button className="flex-1 bg-gray-800 hover:bg-gray-700 py-2 rounded text-sm font-semibold text-gray-400">
+              <button
+                onClick={() => setTradeMode('sell')}
+                className={`py-2 rounded-lg text-sm font-bold transition-all ${
+                  tradeMode === 'sell' 
+                    ? 'bg-gradient-to-b from-red-600 to-red-700 text-white' 
+                    : 'bg-gray-900 text-gray-400 hover:text-white'
+                }`}
+              >
                 SELL
               </button>
             </div>
 
-            {/* Input Token */}
-            <div className="mb-3">
-              <label className="text-xs text-gray-400 mb-2 block">YOU PAY</label>
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-semibold">{inputToken.symbol}</div>
-                  {publicKey && (
-                    <span className="text-xs text-gray-500">
-                      Balance: {balance.toFixed(4)}
-                    </span>
-                  )}
+            {selectedCoin ? (
+              <>
+                <div className="mb-3">
+                  <label className="text-xs text-gray-500 mb-2 block uppercase font-bold">
+                    {tradeMode === 'buy' ? 'You Pay' : 'You Sell'}
+                  </label>
+                  <div className="bg-black/50 border border-gray-800 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-bold">{tradeMode === 'buy' ? 'SOL' : selectedCoin.symbol}</span>
+                      {publicKey && (
+                        <span className="text-xs text-gray-500">
+                          Bal: {balance.toFixed(4)}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="number"
+                      value={amount}
+                      onChange={(e) => {
+                        setAmount(e.target.value);
+                        setQuote(null);
+                      }}
+                      placeholder="0.00"
+                      disabled={!publicKey}
+                      className="w-full bg-transparent text-2xl font-bold outline-none disabled:opacity-50"
+                    />
+                  </div>
                 </div>
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => {
-                    setAmount(e.target.value);
-                    setQuote(null);
-                  }}
-                  placeholder="0.00"
-                  disabled={!publicKey}
-                  className="w-full bg-transparent text-2xl font-bold outline-none disabled:opacity-50"
-                />
-              </div>
-            </div>
 
-            {/* Swap Arrow */}
-            <div className="flex justify-center -my-2 relative z-10">
-              <button
-                onClick={swapTokens}
-                disabled={!publicKey}
-                className="bg-gray-800 hover:bg-gray-700 p-2 rounded-full border-2 border-gray-900 disabled:opacity-50"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Output Token */}
-            <div className="mb-4">
-              <label className="text-xs text-gray-400 mb-2 block">YOU RECEIVE</label>
-              <div className="bg-gray-950 border border-gray-800 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-semibold">{outputToken.symbol}</div>
+                <div className="flex justify-center my-3">
+                  <div className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                  </div>
                 </div>
-                <div className="text-2xl font-bold text-gray-400">
-                  {quote ? (quote.outAmount / Math.pow(10, outputToken.decimals)).toFixed(6) : '0.00'}
-                </div>
-              </div>
-            </div>
 
-            {/* Trade Button */}
-            {!publicKey ? (
-              <button
-                disabled
-                className="w-full bg-gray-700 py-3 rounded-lg font-bold cursor-not-allowed"
-              >
-                CONNECT WALLET
-              </button>
-            ) : !quote ? (
-              <button
-                onClick={getQuote}
-                disabled={loading || !amount || parseFloat(amount) <= 0}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-700 disabled:to-gray-700 py-3 rounded-lg font-bold disabled:cursor-not-allowed"
-              >
-                {loading ? 'LOADING...' : 'GET QUOTE'}
-              </button>
+                <div className="mb-4">
+                  <label className="text-xs text-gray-500 mb-2 block uppercase font-bold">
+                    {tradeMode === 'buy' ? 'You Receive' : 'You Get'}
+                  </label>
+                  <div className="bg-black/50 border border-gray-800 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-bold">{tradeMode === 'buy' ? selectedCoin.symbol : 'SOL'}</span>
+                    </div>
+                    <div className="text-2xl font-bold text-gray-400">
+                      {quote ? (
+                        tradeMode === 'buy' 
+                          ? (quote.outAmount / 1e6).toFixed(2)
+                          : (quote.outAmount / 1e9).toFixed(4)
+                      ) : '0.00'}
+                    </div>
+                  </div>
+                </div>
+
+                {!publicKey ? (
+                  <button disabled className="w-full bg-gray-800 py-3 rounded-lg font-bold cursor-not-allowed">
+                    CONNECT WALLET
+                  </button>
+                ) : !quote ? (
+                  <button
+                    onClick={getQuote}
+                    disabled={loading || !amount || parseFloat(amount) <= 0}
+                    className={`w-full py-3 rounded-lg font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                      tradeMode === 'buy'
+                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                        : 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700'
+                    }`}
+                  >
+                    {loading ? 'LOADING...' : 'GET QUOTE'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={executeSwap}
+                    disabled={loading}
+                    className={`w-full py-3 rounded-lg font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                      tradeMode === 'buy'
+                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                        : 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700'
+                    }`}
+                  >
+                    {loading ? 'EXECUTING...' : `${tradeMode === 'buy' ? 'BUY' : 'SELL'} ${selectedCoin.symbol}`}
+                  </button>
+                )}
+
+                {status && (
+                  <div className="mt-3 p-2 bg-gray-900/50 border border-gray-800 rounded text-xs text-center text-gray-400">
+                    {status}
+                  </div>
+                )}
+              </>
             ) : (
-              <button
-                onClick={executeSwap}
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-700 disabled:to-gray-700 py-3 rounded-lg font-bold disabled:cursor-not-allowed"
-              >
-                {loading ? 'SWAPPING...' : 'EXECUTE SWAP'}
-              </button>
-            )}
-
-            {/* Status */}
-            {status && (
-              <div className="mt-3 p-2 bg-gray-950 border border-gray-800 rounded text-xs text-center text-gray-400">
-                {status}
+              <div className="text-center py-12 text-gray-600">
+                <p className="text-sm">Select a token from the list to trade</p>
               </div>
             )}
           </div>
-
-          {/* Recent Trades */}
-          <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
-            <h3 className="text-sm font-semibold mb-3 text-gray-400">RECENT TRADES</h3>
-            <div className="space-y-2 text-xs">
-              <div className="text-gray-500 text-center py-4">
-                No trades yet
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+        </div   
