@@ -10,8 +10,21 @@ const POPULAR_TOKENS = [
   { symbol: 'USDC', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', decimals: 6 },
   { symbol: 'BONK', mint: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', decimals: 5 },
   { symbol: 'WIF', mint: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', decimals: 6 },
-  { symbol: 'POPCAT', mint: '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr', decimals: 9 },
 ];
+
+interface PumpCoin {
+  mint: string;
+  name: string;
+  symbol: string;
+  description: string;
+  image_uri: string;
+  market_cap: number;
+  created_timestamp: number;
+  raydium_pool?: string;
+  complete?: boolean;
+  virtual_sol_reserves: number;
+  virtual_token_reserves: number;
+}
 
 export default function TradingTerminal() {
   const { connection } = useConnection();
@@ -23,6 +36,10 @@ export default function TradingTerminal() {
   const [quote, setQuote] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
+  
+  // Pump.fun state
+  const [pumpCoins, setPumpCoins] = useState<PumpCoin[]>([]);
+  const [activeTab, setActiveTab] = useState<'new' | 'graduating' | 'graduated'>('new');
 
   useEffect(() => {
     if (publicKey) {
@@ -31,6 +48,23 @@ export default function TradingTerminal() {
       });
     }
   }, [publicKey, connection]);
+
+  // Fetch Pump.fun data
+  useEffect(() => {
+    const fetchPumpCoins = async () => {
+      try {
+        const response = await fetch('/api/pumpfun');
+        const data = await response.json();
+        setPumpCoins(data || []);
+      } catch (error) {
+        console.error('Failed to fetch Pump.fun coins:', error);
+      }
+    };
+
+    fetchPumpCoins();
+    const interval = setInterval(fetchPumpCoins, 10000); // Refresh every 10 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   const getQuote = async () => {
     if (!amount || parseFloat(amount) <= 0) return;
@@ -114,6 +148,40 @@ export default function TradingTerminal() {
     setQuote(null);
   };
 
+  const getBondingProgress = (coin: PumpCoin) => {
+    const GRADUATION_THRESHOLD = 85; // SOL needed to graduate
+    const currentSOL = coin.virtual_sol_reserves / 1e9;
+    return Math.min((currentSOL / GRADUATION_THRESHOLD) * 100, 100);
+  };
+
+  const getFilteredCoins = () => {
+    if (activeTab === 'new') {
+      return pumpCoins.filter(c => !c.complete).slice(0, 10);
+    } else if (activeTab === 'graduating') {
+      return pumpCoins.filter(c => !c.complete && getBondingProgress(c) > 70).slice(0, 10);
+    } else {
+      return pumpCoins.filter(c => c.complete).slice(0, 10);
+    }
+  };
+
+  const formatTimeAgo = (timestamp: number) => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  };
+
+  const formatMarketCap = (mc: number) => {
+    if (mc >= 1000000) return `$${(mc / 1000000).toFixed(1)}M`;
+    if (mc >= 1000) return `$${(mc / 1000).toFixed(0)}K`;
+    return `$${mc.toFixed(0)}`;
+  };
+
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Top Nav */}
@@ -141,40 +209,102 @@ export default function TradingTerminal() {
       {/* 3 Column Layout */}
       <div className="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-60px)]">
         
-        {/* LEFT COLUMN - Token Info & Chart */}
+        {/* LEFT COLUMN - Pump.fun Tokens */}
         <div className="col-span-3 space-y-4 overflow-y-auto">
-          {/* Token Search */}
-          <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
-            <h3 className="text-sm font-semibold mb-3 text-gray-400">TRENDING</h3>
-            <div className="space-y-2">
-              {POPULAR_TOKENS.map((token) => (
+          {/* Pump.fun Tabs */}
+          <div className="bg-gray-900 rounded-lg border border-gray-800">
+            <div className="flex border-b border-gray-800">
+              <button
+                onClick={() => setActiveTab('new')}
+                className={`flex-1 py-2 text-xs font-semibold ${
+                  activeTab === 'new' ? 'text-purple-400 border-b-2 border-purple-400' : 'text-gray-500'
+                }`}
+              >
+                NEW 🔥
+              </button>
+              <button
+                onClick={() => setActiveTab('graduating')}
+                className={`flex-1 py-2 text-xs font-semibold ${
+                  activeTab === 'graduating' ? 'text-yellow-400 border-b-2 border-yellow-400' : 'text-gray-500'
+                }`}
+              >
+                GRADUATING 🚀
+              </button>
+              <button
+                onClick={() => setActiveTab('graduated')}
+                className={`flex-1 py-2 text-xs font-semibold ${
+                  activeTab === 'graduated' ? 'text-green-400 border-b-2 border-green-400' : 'text-gray-500'
+                }`}
+              >
+                GRADUATED ✅
+              </button>
+            </div>
+
+            <div className="p-2 space-y-1 max-h-[600px] overflow-y-auto">
+              {getFilteredCoins().map((coin) => (
                 <button
-                  key={token.symbol}
+                  key={coin.mint}
                   onClick={() => {
-                    setInputToken(token);
+                    setInputToken({
+                      symbol: coin.symbol,
+                      mint: coin.mint,
+                      decimals: 6
+                    });
                     setQuote(null);
                   }}
-                  className="w-full flex items-center justify-between p-2 hover:bg-gray-800 rounded transition"
+                  className="w-full p-2 hover:bg-gray-800 rounded transition text-left"
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-xs font-bold">
-                      {token.symbol[0]}
+                  <div className="flex items-start gap-2">
+                    <img 
+                      src={coin.image_uri} 
+                      alt={coin.name}
+                      className="w-10 h-10 rounded-full bg-gray-800"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect fill="%23374151" width="100" height="100"/%3E%3C/svg%3E';
+                      }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-sm truncate">{coin.name}</span>
+                        <span className="text-xs text-gray-500">{formatTimeAgo(coin.created_timestamp)}</span>
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-xs text-gray-400">${coin.symbol}</span>
+                        <span className="text-xs font-semibold text-green-400">{formatMarketCap(coin.market_cap)}</span>
+                      </div>
+                      {!coin.complete && (
+                        <div className="mt-2">
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-gray-500">Bonding</span>
+                            <span className="text-purple-400">{getBondingProgress(coin).toFixed(0)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-800 rounded-full h-1">
+                            <div 
+                              className="bg-gradient-to-r from-purple-500 to-pink-500 h-1 rounded-full transition-all"
+                              style={{width: `${getBondingProgress(coin)}%`}}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+                      {coin.complete && (
+                        <div className="mt-1 text-xs text-green-400 flex items-center gap-1">
+                          ✅ Graduated to Raydium
+                        </div>
+                      )}
                     </div>
-                    <div className="text-left">
-                      <div className="font-semibold text-sm">{token.symbol}</div>
-                      <div className="text-xs text-gray-500">Solana</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-green-400">+12.4%</div>
-                    <div className="text-xs text-gray-500">24h</div>
                   </div>
                 </button>
               ))}
+              
+              {getFilteredCoins().length === 0 && (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  No coins in this category
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Quick Stats */}
+          {/* Prop Challenge */}
           <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
             <h3 className="text-sm font-semibold mb-3 text-gray-400">PROP CHALLENGE</h3>
             <div className="space-y-3">
@@ -200,7 +330,7 @@ export default function TradingTerminal() {
         <div className="col-span-6 bg-gray-900 rounded-lg border border-gray-800 p-4">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-2xl font-bold">{inputToken.symbol}/USDC</h2>
+              <h2 className="text-2xl font-bold">{inputToken.symbol}/SOL</h2>
               <div className="text-sm text-gray-400">Price Chart</div>
             </div>
             <div className="flex gap-2">
@@ -241,22 +371,7 @@ export default function TradingTerminal() {
               <label className="text-xs text-gray-400 mb-2 block">YOU PAY</label>
               <div className="bg-gray-950 border border-gray-800 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <select
-                    value={inputToken.symbol}
-                    onChange={(e) => {
-                      const token = POPULAR_TOKENS.find(t => t.symbol === e.target.value);
-                      if (token) setInputToken(token);
-                      setQuote(null);
-                    }}
-                    disabled={!publicKey}
-                    className="bg-transparent text-white font-semibold outline-none disabled:opacity-50"
-                  >
-                    {POPULAR_TOKENS.map(token => (
-                      <option key={token.symbol} value={token.symbol}>
-                        {token.symbol}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="font-semibold">{inputToken.symbol}</div>
                   {publicKey && (
                     <span className="text-xs text-gray-500">
                       Balance: {balance.toFixed(4)}
@@ -295,22 +410,7 @@ export default function TradingTerminal() {
               <label className="text-xs text-gray-400 mb-2 block">YOU RECEIVE</label>
               <div className="bg-gray-950 border border-gray-800 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <select
-                    value={outputToken.symbol}
-                    onChange={(e) => {
-                      const token = POPULAR_TOKENS.find(t => t.symbol === e.target.value);
-                      if (token) setOutputToken(token);
-                      setQuote(null);
-                    }}
-                    disabled={!publicKey}
-                    className="bg-transparent text-white font-semibold outline-none disabled:opacity-50"
-                  >
-                    {POPULAR_TOKENS.map(token => (
-                      <option key={token.symbol} value={token.symbol}>
-                        {token.symbol}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="font-semibold">{outputToken.symbol}</div>
                 </div>
                 <div className="text-2xl font-bold text-gray-400">
                   {quote ? (quote.outAmount / Math.pow(10, outputToken.decimals)).toFixed(6) : '0.00'}
@@ -357,7 +457,7 @@ export default function TradingTerminal() {
             <h3 className="text-sm font-semibold mb-3 text-gray-400">RECENT TRADES</h3>
             <div className="space-y-2 text-xs">
               <div className="text-gray-500 text-center py-4">
-                No trades yet. Connect wallet to start trading.
+                No trades yet
               </div>
             </div>
           </div>
