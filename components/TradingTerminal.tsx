@@ -46,12 +46,10 @@ export default function TradingTerminal() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
   
-  // Pump.fun state
   const [pumpCoins, setPumpCoins] = useState<PumpCoin[]>([]);
   const [activeTab, setActiveTab] = useState<'new' | 'graduating' | 'graduated'>('new');
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
   
-  // Challenge state
   const [currentChallenge, setCurrentChallenge] = useState(CHALLENGES[0]);
   const [challengeStats, setChallengeStats] = useState({
     startBalance: 0,
@@ -70,7 +68,6 @@ export default function TradingTerminal() {
     }
   }, [publicKey, connection]);
 
-  // Fetch Pump.fun data
   useEffect(() => {
     const fetchPumpCoins = async () => {
       try {
@@ -161,7 +158,6 @@ export default function TradingTerminal() {
       const newBalance = await connection.getBalance(publicKey);
       setBalance(newBalance / LAMPORTS_PER_SOL);
       
-      // Update challenge stats
       setChallengeStats(prev => ({
         ...prev,
         trades: prev.trades + 1
@@ -210,7 +206,6 @@ export default function TradingTerminal() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
-      {/* Top Nav - Axiom Style */}
       <div className="border-b border-gray-800 bg-black/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-8">
@@ -244,12 +239,9 @@ export default function TradingTerminal() {
         </div>
       </div>
 
-      {/* Main Grid - Axiom Layout */}
       <div className="grid grid-cols-12 gap-3 p-3 h-[calc(100vh-65px)]">
         
-        {/* LEFT - Token Feed */}
         <div className="col-span-3 flex flex-col gap-3 overflow-hidden">
-          {/* Tabs */}
           <div className="bg-[#111] rounded-xl border border-gray-800 overflow-hidden">
             <div className="grid grid-cols-3 bg-black/50">
               <button
@@ -285,9 +277,8 @@ export default function TradingTerminal() {
             </div>
           </div>
 
-          {/* Token List */}
           <div className="flex-1 bg-[#111] rounded-xl border border-gray-800 overflow-hidden">
-            <div className="overflow-y-auto h-full custom-scrollbar">
+            <div className="overflow-y-auto h-full">
               {getFilteredCoins().map((coin) => (
                 <button
                   key={coin.mint}
@@ -302,7 +293,8 @@ export default function TradingTerminal() {
                       alt={coin.name}
                       className="w-10 h-10 rounded-lg bg-gray-800 object-cover"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect fill="%23374151" width="100" height="100"/%3E%3C/svg%3E';
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect fill="%23374151" width="100" height="100"/%3E%3C/svg%3E';
                       }}
                     />
                     <div className="flex-1 min-w-0 text-left">
@@ -350,7 +342,6 @@ export default function TradingTerminal() {
           </div>
         </div>
 
-        {/* CENTER - Chart */}
         <div className="col-span-6 bg-[#111] rounded-xl border border-gray-800 flex flex-col">
           {selectedCoin ? (
             <>
@@ -394,9 +385,7 @@ export default function TradingTerminal() {
           )}
         </div>
 
-        {/* RIGHT - Trade + Challenge */}
         <div className="col-span-3 flex flex-col gap-3 overflow-y-auto">
-          {/* Challenge Status */}
           <div className="bg-[#111] rounded-xl border border-gray-800 p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-gray-400 uppercase">Prop Challenge</h3>
@@ -448,7 +437,6 @@ export default function TradingTerminal() {
             )}
           </div>
 
-          {/* Trade Panel */}
           <div className="bg-[#111] rounded-xl border border-gray-800 p-4 flex-1">
             <div className="grid grid-cols-2 gap-2 mb-4">
               <button
@@ -570,21 +558,8 @@ export default function TradingTerminal() {
               </div>
             )}
           </div>
-        </div   
-</div>
-      <style jsx>{`
-    .custom-scrollbar::-webkit-scrollbar {
-      width: 6px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-      background: #111;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: #333;
-      border-radius: 3px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-      background: #444;
-    }
-  `}</style>
-</div>
+        </div>
+      </div>
+    </div>
+  );
+}
