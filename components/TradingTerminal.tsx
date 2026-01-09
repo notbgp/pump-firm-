@@ -285,4 +285,246 @@ export default function TradingTerminal() {
       </div>
 
       {/* 4 Column Layout - Axiom Style */}
-      <div className="grid grid-cols-12
+      <div className="grid grid-cols-12 gap-2 p-2 h-[calc(100vh-56px)]">
+        
+        {/* COLUMN 1 - New Tokens 🔥 */}
+        <div className="col-span-3 flex flex-col overflow-hidden">
+          <div className="bg-[#111] rounded-lg border border-gray-800 overflow-hidden flex flex-col h-full">
+            <div className="bg-gradient-to-b from-purple-600 to-purple-700 px-3 py-2 flex items-center justify-between flex-shrink-0">
+              <span className="text-xs font-bold uppercase">New Launches 🔥</span>
+              <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded">{getNewCoins().length}</span>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {getNewCoins().length > 0 ? (
+                getNewCoins().map(coin => <CoinCard key={coin.mint} coin={coin} />)
+              ) : (
+                <div className="text-center py-12 text-gray-600">
+                  <p className="text-xs">Loading new tokens...</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* COLUMN 2 - Graduating Tokens 🚀 */}
+        <div className="col-span-3 flex flex-col overflow-hidden">
+          <div className="bg-[#111] rounded-lg border border-gray-800 overflow-hidden flex flex-col h-full">
+            <div className="bg-gradient-to-b from-yellow-600 to-orange-600 px-3 py-2 flex items-center justify-between flex-shrink-0">
+              <span className="text-xs font-bold uppercase">Graduating 🚀</span>
+              <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded">{getGraduatingCoins().length}</span>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {getGraduatingCoins().length > 0 ? (
+                getGraduatingCoins().map(coin => <CoinCard key={coin.mint} coin={coin} />)
+              ) : (
+                <div className="text-center py-12 text-gray-600">
+                  <p className="text-xs">No coins close to graduating</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* COLUMN 3 - Graduated Tokens ✅ */}
+        <div className="col-span-3 flex flex-col overflow-hidden">
+          <div className="bg-[#111] rounded-lg border border-gray-800 overflow-hidden flex flex-col h-full">
+            <div className="bg-gradient-to-b from-green-600 to-emerald-700 px-3 py-2 flex items-center justify-between flex-shrink-0">
+              <span className="text-xs font-bold uppercase">Graduated ✅</span>
+              <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded">{getGraduatedCoins().length}</span>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {getGraduatedCoins().length > 0 ? (
+                getGraduatedCoins().map(coin => <CoinCard key={coin.mint} coin={coin} />)
+              ) : (
+                <div className="text-center py-12 text-gray-600">
+                  <p className="text-xs">No graduated tokens yet</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* COLUMN 4 - Trading + Challenge */}
+        <div className="col-span-3 flex flex-col gap-2 overflow-hidden">
+          
+          {/* Challenge Card */}
+          <div className="bg-[#111] rounded-lg border border-gray-800 p-3 flex-shrink-0">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-bold text-gray-400 uppercase">Prop Challenge</h3>
+              <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded font-bold">
+                {currentChallenge.name}
+              </span>
+            </div>
+            
+            {currentChallenge.id === 1 ? (
+              <div className="space-y-2">
+                <div className="text-center py-3">
+                  <div className="text-2xl font-bold mb-0.5">Demo Mode</div>
+                  <p className="text-xs text-gray-400">Practice risk-free trading</p>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5 text-center">
+                  <div className="bg-gray-900/50 rounded p-1.5">
+                    <div className="text-xs text-gray-500">Trades</div>
+                    <div className="text-sm font-bold">{challengeStats.trades}</div>
+                  </div>
+                  <div className="bg-gray-900/50 rounded p-1.5">
+                    <div className="text-xs text-gray-500">Win %</div>
+                    <div className="text-sm font-bold">{challengeStats.winRate}%</div>
+                  </div>
+                  <div className="bg-gray-900/50 rounded p-1.5">
+                    <div className="text-xs text-gray-500">PnL</div>
+                    <div className="text-sm font-bold text-green-400">+0%</div>
+                  </div>
+                </div>
+                <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 py-2 rounded-lg text-xs font-bold">
+                  Start Phase 1 ($100)
+                </button>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Trading Panel */}
+          <div className="bg-[#111] rounded-lg border border-gray-800 p-3 flex-1 flex flex-col overflow-hidden">
+            <div className="grid grid-cols-2 gap-1.5 mb-3 flex-shrink-0">
+              <button
+                onClick={() => setTradeMode('buy')}
+                className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  tradeMode === 'buy' 
+                    ? 'bg-gradient-to-b from-green-600 to-green-700 text-white' 
+                    : 'bg-gray-900 text-gray-400 hover:text-white'
+                }`}
+              >
+                BUY
+              </button>
+              <button
+                onClick={() => setTradeMode('sell')}
+                className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  tradeMode === 'sell' 
+                    ? 'bg-gradient-to-b from-red-600 to-red-700 text-white' 
+                    : 'bg-gray-900 text-gray-400 hover:text-white'
+                }`}
+              >
+                SELL
+              </button>
+            </div>
+
+            {selectedCoin ? (
+              <div className="flex-1 flex flex-col">
+                {/* Selected Token Display */}
+                <div className="flex items-center gap-2 mb-3 p-2 bg-gray-900/50 rounded-lg flex-shrink-0">
+                  <img src={selectedCoin.image_uri} alt={selectedCoin.name} className="w-8 h-8 rounded-lg" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-sm truncate">{selectedCoin.symbol}</div>
+                    <div className="text-xs text-gray-400 truncate">{selectedCoin.name}</div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-xs font-bold text-green-400">{formatMarketCap(selectedCoin.market_cap)}</div>
+                  </div>
+                </div>
+
+                {/* Input */}
+                <div className="mb-2 flex-shrink-0">
+                  <label className="text-xs text-gray-500 mb-1 block uppercase font-bold">
+                    {tradeMode === 'buy' ? 'You Pay' : 'You Sell'}
+                  </label>
+                  <div className="bg-black/50 border border-gray-800 rounded-lg p-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-sm">{tradeMode === 'buy' ? 'SOL' : selectedCoin.symbol}</span>
+                      {publicKey && (
+                        <span className="text-xs text-gray-500">
+                          Bal: {balance.toFixed(4)}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="number"
+                      value={amount}
+                      onChange={(e) => {
+                        setAmount(e.target.value);
+                        setQuote(null);
+                      }}
+                      placeholder="0.00"
+                      disabled={!publicKey}
+                      className="w-full bg-transparent text-xl font-bold outline-none disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                {/* Arrow */}
+                <div className="flex justify-center my-2 flex-shrink-0">
+                  <div className="w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center">
+                    <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Output */}
+                <div className="mb-3 flex-shrink-0">
+                  <label className="text-xs text-gray-500 mb-1 block uppercase font-bold">
+                    {tradeMode === 'buy' ? 'You Receive' : 'You Get'}
+                  </label>
+                  <div className="bg-black/50 border border-gray-800 rounded-lg p-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-sm">{tradeMode === 'buy' ? selectedCoin.symbol : 'SOL'}</span>
+                    </div>
+                    <div className="text-xl font-bold text-gray-400">
+                      {quote ? (
+                        tradeMode === 'buy' 
+                          ? (quote.outAmount / 1e6).toFixed(2)
+                          : (quote.outAmount / 1e9).toFixed(4)
+                      ) : '0.00'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Button */}
+                <div className="flex-shrink-0">
+                  {!publicKey ? (
+                    <button disabled className="w-full bg-gray-800 py-2.5 rounded-lg font-bold text-sm cursor-not-allowed">
+                      CONNECT WALLET
+                    </button>
+                  ) : !quote ? (
+                    <button
+                      onClick={getQuote}
+                      disabled={loading || !amount || parseFloat(amount) <= 0}
+                      className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                        tradeMode === 'buy'
+                          ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                          : 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700'
+                      }`}
+                    >
+                      {loading ? 'LOADING...' : 'GET QUOTE'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={executeSwap}
+                      disabled={loading}
+                      className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                        tradeMode === 'buy'
+                          ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                          : 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700'
+                      }`}
+                    >
+                      {loading ? 'EXECUTING...' : `${tradeMode === 'buy' ? 'BUY' : 'SELL'} ${selectedCoin.symbol}`}
+                    </button>
+                  )}
+
+                  {status && (
+                    <div className="mt-2 p-1.5 bg-gray-900/50 border border-gray-800 rounded text-xs text-center text-gray-400">
+                      {status}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-center text-gray-600">
+                <p className="text-xs">Select a token from any column to trade</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
