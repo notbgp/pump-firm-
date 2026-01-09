@@ -6,7 +6,7 @@ import { Providers } from "./providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Solana Memecoin Terminal",
+  title: "Pump Firm - Memecoin Prop Trading",
   description: "Trade memecoins and unlock funded accounts",
 };
 
