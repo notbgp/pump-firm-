@@ -96,7 +96,6 @@ export default function TradingTerminal() {
       setQuote(null);
       setAmount('');
       
-      // Refresh balance
       const newBalance = await connection.getBalance(publicKey);
       setBalance(newBalance / LAMPORTS_PER_SOL);
     } catch (error: any) {
@@ -117,7 +116,6 @@ export default function TradingTerminal() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold text-white mb-2">
@@ -130,7 +128,6 @@ export default function TradingTerminal() {
           <WalletMultiButton />
         </div>
 
-        {/* Balance Display */}
         {publicKey && (
           <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 mb-6 border border-white/10">
             <div className="text-gray-400 text-sm mb-1">Wallet Balance</div>
@@ -140,9 +137,7 @@ export default function TradingTerminal() {
           </div>
         )}
 
-        {/* Trading Card */}
         <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10">
-          {/* Input Token */}
           <div className="mb-4">
             <label className="text-gray-400 text-sm mb-2 block">You Pay</label>
             <div className="flex gap-2">
@@ -176,7 +171,6 @@ export default function TradingTerminal() {
             </div>
           </div>
 
-          {/* Swap Button */}
           <div className="flex justify-center my-4">
             <button
               onClick={swapTokens}
@@ -189,7 +183,6 @@ export default function TradingTerminal() {
             </button>
           </div>
 
-          {/* Output Token */}
           <div className="mb-6">
             <label className="text-gray-400 text-sm mb-2 block">You Receive</label>
             <div className="flex gap-2">
@@ -215,7 +208,6 @@ export default function TradingTerminal() {
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="space-y-3">
             {!publicKey ? (
               <button
@@ -243,14 +235,12 @@ export default function TradingTerminal() {
             )}
           </div>
 
-          {/* Status */}
           {status && (
             <div className="mt-4 p-4 bg-white/5 rounded-xl border border-white/10">
               <p className="text-gray-300 text-sm text-center">{status}</p>
             </div>
           )}
 
-          {/* Info for non-connected users */}
           {!publicKey && (
             <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
               <p className="text-blue-300 text-sm text-center">
@@ -260,7 +250,6 @@ export default function TradingTerminal() {
           )}
         </div>
 
-        {/* Footer */}
         <div className="text-center mt-8 text-gray-500 text-sm">
           <p>Powered by Jupiter • Solana Mainnet</p>
         </div>
