@@ -571,3 +571,20 @@ export default function TradingTerminal() {
             )}
           </div>
         </div   
+</div>
+      <style jsx>{`
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #111;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 3px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #444;
+    }
+  `}</style>
+</div>
