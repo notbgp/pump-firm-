@@ -590,4 +590,97 @@ export default function TradingTerminal() {
                       }}
                       placeholder="0.00"
                       disabled={!publicKey}
-                      className="w-full bg-transparent text-xl font-bold outline-none disabled:
+                      className="w-full bg-transparent text-xl font-bold outline-none disabled:opacity-50"
+/>
+</div>
+</div>{/* Arrow */}
+            <div className="flex justify-center my-2 flex-shrink-0">
+              <div className="w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center">
+                <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Output */}
+            <div className="mb-3 flex-shrink-0">
+              <label className="text-xs text-gray-500 mb-1 block uppercase font-bold">
+                {tradeMode === 'buy' ? `You Receive (${selectedCoin.symbol})` : 'You Get (SOL)'}
+              </label>
+              <div className="bg-black/50 border border-gray-800 rounded-lg p-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-sm">{tradeMode === 'buy' ? selectedCoin.symbol : 'SOL'}</span>
+                </div>
+                <div className="text-xl font-bold text-gray-400">
+                  {quote && !quote.isPumpFun ? (
+                    tradeMode === 'buy' 
+                      ? (quote.outAmount / 1e6).toFixed(2)
+                      : (quote.outAmount / 1e9).toFixed(4)
+                  ) : quote?.isPumpFun ? '~Calculated on-chain' : '0.00'}
+                </div>
+              </div>
+            </div>
+
+            {/* Info Banner for Pump.fun */}
+            {!selectedCoin.complete && tradeMode === 'buy' && (
+              <div className="mb-2 p-2 bg-purple-600/10 border border-purple-500/20 rounded-lg flex-shrink-0">
+                <div className="text-xs text-purple-400 font-medium">
+                  ⚡ Trading on Pump.fun bonding curve
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  Price calculated dynamically on-chain
+                </div>
+              </div>
+            )}
+
+            {/* Button */}
+            <div className="flex-shrink-0">
+              {!publicKey ? (
+                <button disabled className="w-full bg-gray-800 py-2.5 rounded-lg font-bold text-sm cursor-not-allowed">
+                  CONNECT WALLET
+                </button>
+              ) : !quote ? (
+                <button
+                  onClick={getQuote}
+                  disabled={loading || !amount || parseFloat(amount) <= 0}
+                  className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                    tradeMode === 'buy'
+                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                      : 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700'
+                  }`}
+                >
+                  {loading ? 'LOADING...' : !selectedCoin.complete && tradeMode === 'buy' ? 'BUY ON PUMP.FUN' : 'GET QUOTE'}
+                </button>
+              ) : (
+                <button
+                  onClick={executeSwap}
+                  disabled={loading}
+                  className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                    tradeMode === 'buy'
+                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                      : 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700'
+                  }`}
+                >
+                  {loading ? 'EXECUTING...' : `${tradeMode === 'buy' ? 'BUY' : 'SELL'} ${selectedCoin.symbol}`}
+                </button>
+              )}
+
+              {status && (
+                <div className="mt-2 p-1.5 bg-gray-900/50 border border-gray-800 rounded text-xs text-center text-gray-400">
+                  {status}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-center text-gray-600">
+            <div>
+              <p className="text-xs mb-2">Select a token to trade</p>
+              <p className="text-xs text-gray-700">💡 Click token image to view chart</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+</div>
