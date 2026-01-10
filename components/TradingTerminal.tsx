@@ -284,14 +284,14 @@ export default function TradingTerminal() {
         </div>
       </div>
 
-      {/* 4 Column Layout - Axiom Style */}
+      {/* 4 Column Layout */}
       <div className="grid grid-cols-12 gap-2 p-2 h-[calc(100vh-56px)]">
         
-        {/* COLUMN 1 - New Tokens 🔥 */}
-        <div className="col-span-3 flex flex-col overflow-hidden">
+        {/* COLUMN 1 - New Tokens */}
+        <div className="col-span-2 flex flex-col overflow-hidden">
           <div className="bg-[#111] rounded-lg border border-gray-800 overflow-hidden flex flex-col h-full">
             <div className="bg-gradient-to-b from-purple-600 to-purple-700 px-3 py-2 flex items-center justify-between flex-shrink-0">
-              <span className="text-xs font-bold uppercase">New Launches 🔥</span>
+              <span className="text-xs font-bold uppercase">New 🔥</span>
               <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded">{getNewCoins().length}</span>
             </div>
             <div className="overflow-y-auto flex-1">
@@ -299,15 +299,15 @@ export default function TradingTerminal() {
                 getNewCoins().map(coin => <CoinCard key={coin.mint} coin={coin} />)
               ) : (
                 <div className="text-center py-12 text-gray-600">
-                  <p className="text-xs">Loading new tokens...</p>
+                  <p className="text-xs">Loading...</p>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* COLUMN 2 - Graduating Tokens 🚀 */}
-        <div className="col-span-3 flex flex-col overflow-hidden">
+        {/* COLUMN 2 - Graduating Tokens */}
+        <div className="col-span-2 flex flex-col overflow-hidden">
           <div className="bg-[#111] rounded-lg border border-gray-800 overflow-hidden flex flex-col h-full">
             <div className="bg-gradient-to-b from-yellow-600 to-orange-600 px-3 py-2 flex items-center justify-between flex-shrink-0">
               <span className="text-xs font-bold uppercase">Graduating 🚀</span>
@@ -318,15 +318,15 @@ export default function TradingTerminal() {
                 getGraduatingCoins().map(coin => <CoinCard key={coin.mint} coin={coin} />)
               ) : (
                 <div className="text-center py-12 text-gray-600">
-                  <p className="text-xs">No coins close to graduating</p>
+                  <p className="text-xs">None close yet</p>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* COLUMN 3 - Graduated Tokens ✅ */}
-        <div className="col-span-3 flex flex-col overflow-hidden">
+        {/* COLUMN 3 - Graduated Tokens */}
+        <div className="col-span-2 flex flex-col overflow-hidden">
           <div className="bg-[#111] rounded-lg border border-gray-800 overflow-hidden flex flex-col h-full">
             <div className="bg-gradient-to-b from-green-600 to-emerald-700 px-3 py-2 flex items-center justify-between flex-shrink-0">
               <span className="text-xs font-bold uppercase">Graduated ✅</span>
@@ -337,14 +337,55 @@ export default function TradingTerminal() {
                 getGraduatedCoins().map(coin => <CoinCard key={coin.mint} coin={coin} />)
               ) : (
                 <div className="text-center py-12 text-gray-600">
-                  <p className="text-xs">No graduated tokens yet</p>
+                  <p className="text-xs">None yet</p>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* COLUMN 4 - Trading + Challenge */}
+        {/* COLUMN 4 - Chart */}
+        <div className="col-span-3 flex flex-col overflow-hidden">
+          <div className="bg-[#111] rounded-lg border border-gray-800 flex flex-col h-full overflow-hidden">
+            {selectedCoin ? (
+              <>
+                <div className="p-3 border-b border-gray-800 flex-shrink-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <img src={selectedCoin.image_uri} alt={selectedCoin.name} className="w-8 h-8 rounded-lg" />
+                      <div>
+                        <h2 className="text-lg font-bold">{selectedCoin.symbol}</h2>
+                        <p className="text-xs text-gray-400">{selectedCoin.name}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-green-400">{formatMarketCap(selectedCoin.market_cap)}</div>
+                      <div className="text-xs text-gray-500">Market Cap</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1 bg-[#0a0a0a] overflow-hidden">
+                  <iframe
+                    src={`https://dexscreener.com/solana/${selectedCoin.mint}?embed=1&theme=dark&trades=0&info=0`}
+                    className="w-full h-full border-0"
+                    title={`${selectedCoin.symbol} Chart`}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-center text-gray-600">
+                <div>
+                  <svg className="w-20 h-20 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                  </svg>
+                  <p className="text-sm font-medium">Select a token to view chart</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* COLUMN 5 - Trading + Challenge */}
         <div className="col-span-3 flex flex-col gap-2 overflow-hidden">
           
           {/* Challenge Card */}
@@ -409,16 +450,13 @@ export default function TradingTerminal() {
             </div>
 
             {selectedCoin ? (
-              <div className="flex-1 flex flex-col">
+              <div className="flex-1 flex flex-col overflow-y-auto">
                 {/* Selected Token Display */}
                 <div className="flex items-center gap-2 mb-3 p-2 bg-gray-900/50 rounded-lg flex-shrink-0">
                   <img src={selectedCoin.image_uri} alt={selectedCoin.name} className="w-8 h-8 rounded-lg" />
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-sm truncate">{selectedCoin.symbol}</div>
                     <div className="text-xs text-gray-400 truncate">{selectedCoin.name}</div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-xs font-bold text-green-400">{formatMarketCap(selectedCoin.market_cap)}</div>
                   </div>
                 </div>
 
@@ -519,7 +557,7 @@ export default function TradingTerminal() {
               </div>
             ) : (
               <div className="flex-1 flex items-center justify-center text-center text-gray-600">
-                <p className="text-xs">Select a token from any column to trade</p>
+                <p className="text-xs">Select a token to trade</p>
               </div>
             )}
           </div>
