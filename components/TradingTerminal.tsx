@@ -4,6 +4,7 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { LAMPORTS_PER_SOL, Transaction, VersionedTransaction } from '@solana/web3.js';
 import { useEffect, useState } from 'react';
+import { PumpPortalWebSocket, PumpToken } from '@/lib/pumpPortalWebSocket';
 
 interface PumpCoin {
   mint: string;
@@ -65,7 +66,8 @@ export default function TradingTerminal() {
     }
   }, [publicKey, connection]);
 
-  useEffect(() => {
+useEffect(() => {
+    // Initial fetch from API
     const fetchPumpCoins = async () => {
       try {
         const response = await fetch('/api/pumpfun');
@@ -78,24 +80,28 @@ export default function TradingTerminal() {
     };
 
     fetchPumpCoins();
-    const interval = setInterval(fetchPumpCoins, 10000);
-    return () => clearInterval(interval);
-  }, []);
 
-  const getQuote = async () => {
-    if (!amount || parseFloat(amount) <= 0 || !selectedCoin) return;
+    // Connect to PumpPortal WebSocket for live updates
+    const pumpWs = new PumpPortalWebSocket();
     
-    setLoading(true);
-    setStatus('Getting quote...');
-    
-    try {
-      // For non-graduated Pump.fun tokens, we don't need Jupiter quote
-      if (!selectedCoin.complete && tradeMode === 'buy') {
-        setStatus('Ready to buy on Pump.fun bonding curve');
-        setQuote({ isPumpFun: true });
-        setLoading(false);
-        return;
-      }
+    pumpWs.connect((newToken: PumpToken) => {
+      console.log('🔥 New Pump.fun token:', newToken.symbol);
+      
+      // Add new token to the beginning of the list
+      setPumpCoins(prev => {
+        const exists = prev.some(coin => coin.mint === newToken.mint);
+        if (exists) return prev;
+        
+        // Add to top and limit to 100 tokens
+        return [newToken, ...prev].slice(0, 100);
+      });
+    });
+
+    // Cleanup on unmount
+    return () => {
+      pumpWs.disconnect();
+    };
+  }, []);
 
       // For graduated tokens or sells, use Jupiter
       const solMint = 'So11111111111111111111111111111111111111112';
@@ -271,12 +277,15 @@ export default function TradingTerminal() {
     return `$${mc.toFixed(0)}`;
   };
 
-  const CoinCard = ({ coin }: { coin: PumpCoin }) => (
+const CoinCard = ({ coin }: { coin: PumpCoin }) => {
+  const isNew = Date.now() - coin.created_timestamp < 300000; // New if < 5 min old
+  
+  return (
     <div className="w-full p-2.5 border-b border-gray-800/50 hover:bg-gray-900/50 transition-all">
       <div className="flex items-start gap-2">
         <button
           onClick={() => setChartCoin(coin)}
-          className="flex-shrink-0"
+          className="flex-shrink-0 relative"
         >
           <img 
             src={coin.image_uri} 
@@ -287,13 +296,21 @@ export default function TradingTerminal() {
               target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect fill="%23374151" width="100" height="100"/%3E%3C/svg%3E';
             }}
           />
+          {isNew && (
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+          )}
         </button>
         <button
           onClick={() => setSelectedCoin(coin)}
           className="flex-1 min-w-0 text-left"
         >
           <div className="flex items-center justify-between gap-1">
-            <span className="font-bold text-sm truncate">{coin.symbol}</span>
+            <div className="flex items-center gap-1">
+              <span className="font-bold text-sm truncate">{coin.symbol}</span>
+              {isNew && (
+                <span className="px-1 py-0.5 bg-red-500 text-white text-xs font-bold rounded">NEW</span>
+              )}
+            </div>
             <span className="text-xs text-gray-500 flex-shrink-0">{formatTimeAgo(coin.created_timestamp)}</span>
           </div>
           <div className="flex items-center justify-between gap-1 mt-0.5">
@@ -326,8 +343,7 @@ export default function TradingTerminal() {
       </div>
     </div>
   );
-
-  return (
+};  return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       {/* Chart Modal */}
       {chartCoin && (
@@ -420,7 +436,22 @@ export default function TradingTerminal() {
           </div>
         </div>
       </div>
-
+<nav className="flex gap-1">
+  <button className="px-3 py-1 bg-purple-600/20 text-purple-400 rounded-lg text-xs font-medium">
+    Trade
+  </button>
+  <button className="px-3 py-1 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg text-xs font-medium">
+    Portfolio
+  </button>
+  <button className="px-3 py-1 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg text-xs font-medium">
+    Leaderboard
+  </button>
+  <div className="px-2 py-1 bg-green-600/20 border border-green-500/30 rounded text-xs font-medium text-green-400 flex items-center gap-1">
+    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+    LIVE
+  </div>
+</nav>
+      
       {/* 4 Column Layout */}
       <div className="grid grid-cols-12 gap-2 p-2 h-[calc(100vh-56px)]">
         
