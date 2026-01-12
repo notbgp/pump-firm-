@@ -66,7 +66,7 @@ export default function TradingTerminal() {
     }
   }, [publicKey, connection]);
 
-useEffect(() => {
+  useEffect(() => {
     // Initial fetch from API
     const fetchPumpCoins = async () => {
       try {
@@ -103,7 +103,20 @@ useEffect(() => {
     };
   }, []);
 
-      // For graduated tokens or sells, use Jupiter
+  const getQuote = async () => {
+    if (!amount || parseFloat(amount) <= 0 || !selectedCoin) return;
+    
+    setLoading(true);
+    setStatus('Getting quote...');
+    
+    try {
+      if (!selectedCoin.complete && tradeMode === 'buy') {
+        setStatus('Ready to buy on Pump.fun bonding curve');
+        setQuote({ isPumpFun: true });
+        setLoading(false);
+        return;
+      }
+
       const solMint = 'So11111111111111111111111111111111111111112';
       const inputMint = tradeMode === 'buy' ? solMint : selectedCoin.mint;
       const outputMint = tradeMode === 'buy' ? selectedCoin.mint : solMint;
@@ -139,7 +152,6 @@ useEffect(() => {
     setLoading(true);
 
     try {
-      // PUMP.FUN BONDING CURVE - For non-graduated tokens
       if (!selectedCoin.complete && tradeMode === 'buy' && quote?.isPumpFun) {
         setStatus('Buying on Pump.fun bonding curve...');
         
@@ -162,7 +174,6 @@ useEffect(() => {
           return;
         }
 
-        // Decode and sign the transaction from PumpPortal
         const txBuffer = Buffer.from(data, 'base64');
         const transaction = Transaction.from(txBuffer);
         
@@ -193,9 +204,7 @@ useEffect(() => {
           trades: prev.trades + 1
         }));
         
-      } 
-      // JUPITER DEX - For graduated tokens or sells
-      else {
+      } else {
         if (!signTransaction || !quote || quote.isPumpFun) {
           setStatus('Need Jupiter quote for this trade');
           setLoading(false);
@@ -277,75 +286,76 @@ useEffect(() => {
     return `$${mc.toFixed(0)}`;
   };
 
-const CoinCard = ({ coin }: { coin: PumpCoin }) => {
-  const isNew = Date.now() - coin.created_timestamp < 300000; // New if < 5 min old
-  
-  return (
-    <div className="w-full p-2.5 border-b border-gray-800/50 hover:bg-gray-900/50 transition-all">
-      <div className="flex items-start gap-2">
-        <button
-          onClick={() => setChartCoin(coin)}
-          className="flex-shrink-0 relative"
-        >
-          <img 
-            src={coin.image_uri} 
-            alt={coin.name}
-            className="w-9 h-9 rounded-lg bg-gray-800 object-cover hover:ring-2 hover:ring-purple-500 transition"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect fill="%23374151" width="100" height="100"/%3E%3C/svg%3E';
-            }}
-          />
-          {isNew && (
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-          )}
-        </button>
-        <button
-          onClick={() => setSelectedCoin(coin)}
-          className="flex-1 min-w-0 text-left"
-        >
-          <div className="flex items-center justify-between gap-1">
-            <div className="flex items-center gap-1">
-              <span className="font-bold text-sm truncate">{coin.symbol}</span>
-              {isNew && (
-                <span className="px-1 py-0.5 bg-red-500 text-white text-xs font-bold rounded">NEW</span>
-              )}
-            </div>
-            <span className="text-xs text-gray-500 flex-shrink-0">{formatTimeAgo(coin.created_timestamp)}</span>
-          </div>
-          <div className="flex items-center justify-between gap-1 mt-0.5">
-            <span className="text-xs text-gray-400 truncate">{coin.name}</span>
-            <span className="text-xs font-bold text-green-400 flex-shrink-0">{formatMarketCap(coin.market_cap)}</span>
-          </div>
-          {!coin.complete && (
-            <div className="mt-1.5">
-              <div className="w-full bg-gray-800 rounded-full h-1 overflow-hidden">
-                <div 
-                  className={`h-1 rounded-full transition-all ${
-                    getBondingProgress(coin) > 90 
-                      ? 'bg-gradient-to-r from-yellow-500 to-orange-500' 
-                      : 'bg-gradient-to-r from-purple-500 to-pink-500'
-                  }`}
-                  style={{width: `${getBondingProgress(coin)}%`}}
-                ></div>
+  const CoinCard = ({ coin }: { coin: PumpCoin }) => {
+    const isNew = Date.now() - coin.created_timestamp < 300000; // New if < 5 min old
+    
+    return (
+      <div className="w-full p-2.5 border-b border-gray-800/50 hover:bg-gray-900/50 transition-all">
+        <div className="flex items-start gap-2">
+          <button
+            onClick={() => setChartCoin(coin)}
+            className="flex-shrink-0 relative"
+          >
+            <img 
+              src={coin.image_uri} 
+              alt={coin.name}
+              className="w-9 h-9 rounded-lg bg-gray-800 object-cover hover:ring-2 hover:ring-purple-500 transition"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Crect fill="%23374151" width="100" height="100"/%3E%3C/svg%3E';
+              }}
+            />
+            {isNew && (
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+            )}
+          </button>
+          <button
+            onClick={() => setSelectedCoin(coin)}
+            className="flex-1 min-w-0 text-left"
+          >
+            <div className="flex items-center justify-between gap-1">
+              <div className="flex items-center gap-1">
+                <span className="font-bold text-sm truncate">{coin.symbol}</span>
+                {isNew && (
+                  <span className="px-1 py-0.5 bg-red-500 text-white text-xs font-bold rounded">NEW</span>
+                )}
               </div>
+              <span className="text-xs text-gray-500 flex-shrink-0">{formatTimeAgo(coin.created_timestamp)}</span>
             </div>
-          )}
-          {coin.complete && (
-            <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-500/10 border border-green-500/20 rounded text-xs text-green-400 font-medium">
-              <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Raydium
+            <div className="flex items-center justify-between gap-1 mt-0.5">
+              <span className="text-xs text-gray-400 truncate">{coin.name}</span>
+              <span className="text-xs font-bold text-green-400 flex-shrink-0">{formatMarketCap(coin.market_cap)}</span>
             </div>
-          )}
-        </button>
+            {!coin.complete && (
+              <div className="mt-1.5">
+                <div className="w-full bg-gray-800 rounded-full h-1 overflow-hidden">
+                  <div 
+                    className={`h-1 rounded-full transition-all ${
+                      getBondingProgress(coin) > 90 
+                        ? 'bg-gradient-to-r from-yellow-500 to-orange-500' 
+                        : 'bg-gradient-to-r from-purple-500 to-pink-500'
+                    }`}
+                    style={{width: `${getBondingProgress(coin)}%`}}
+                  ></div>
+                </div>
+              </div>
+            )}
+            {coin.complete && (
+              <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-500/10 border border-green-500/20 rounded text-xs text-green-400 font-medium">
+                <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                Raydium
+              </div>
+            )}
+          </button>
+        </div>
       </div>
-    </div>
-  );
-};  return (
+    );
+  };
+
+  return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
-      {/* Chart Modal */}
       {chartCoin && (
         <div 
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
@@ -403,7 +413,6 @@ const CoinCard = ({ coin }: { coin: PumpCoin }) => {
         </div>
       )}
 
-      {/* Top Nav */}
       <div className="border-b border-gray-800 bg-black/80 backdrop-blur-xl sticky top-0 z-40">
         <div className="px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-6">
@@ -423,6 +432,10 @@ const CoinCard = ({ coin }: { coin: PumpCoin }) => {
               <button className="px-3 py-1 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg text-xs font-medium">
                 Leaderboard
               </button>
+              <div className="px-2 py-1 bg-green-600/20 border border-green-500/30 rounded text-xs font-medium text-green-400 flex items-center gap-1">
+                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                LIVE
+              </div>
             </nav>
           </div>
           <div className="flex items-center gap-3">
@@ -436,26 +449,9 @@ const CoinCard = ({ coin }: { coin: PumpCoin }) => {
           </div>
         </div>
       </div>
-<nav className="flex gap-1">
-  <button className="px-3 py-1 bg-purple-600/20 text-purple-400 rounded-lg text-xs font-medium">
-    Trade
-  </button>
-  <button className="px-3 py-1 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg text-xs font-medium">
-    Portfolio
-  </button>
-  <button className="px-3 py-1 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg text-xs font-medium">
-    Leaderboard
-  </button>
-  <div className="px-2 py-1 bg-green-600/20 border border-green-500/30 rounded text-xs font-medium text-green-400 flex items-center gap-1">
-    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-    LIVE
-  </div>
-</nav>
-      
-      {/* 4 Column Layout */}
+
       <div className="grid grid-cols-12 gap-2 p-2 h-[calc(100vh-56px)]">
         
-        {/* COLUMN 1 - New Tokens */}
         <div className="col-span-3 flex flex-col overflow-hidden">
           <div className="bg-[#111] rounded-lg border border-gray-800 overflow-hidden flex flex-col h-full">
             <div className="bg-gradient-to-b from-purple-600 to-purple-700 px-3 py-2 flex items-center justify-between flex-shrink-0">
@@ -467,14 +463,13 @@ const CoinCard = ({ coin }: { coin: PumpCoin }) => {
                 getNewCoins().map(coin => <CoinCard key={coin.mint} coin={coin} />)
               ) : (
                 <div className="text-center py-12 text-gray-600">
-                  <p className="text-xs">Loading...</p>
+                  <p className="text-xs">Waiting for new tokens...</p>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* COLUMN 2 - Graduating Tokens */}
         <div className="col-span-3 flex flex-col overflow-hidden">
           <div className="bg-[#111] rounded-lg border border-gray-800 overflow-hidden flex flex-col h-full">
             <div className="bg-gradient-to-b from-yellow-600 to-orange-600 px-3 py-2 flex items-center justify-between flex-shrink-0">
@@ -493,7 +488,6 @@ const CoinCard = ({ coin }: { coin: PumpCoin }) => {
           </div>
         </div>
 
-        {/* COLUMN 3 - Graduated Tokens */}
         <div className="col-span-3 flex flex-col overflow-hidden">
           <div className="bg-[#111] rounded-lg border border-gray-800 overflow-hidden flex flex-col h-full">
             <div className="bg-gradient-to-b from-green-600 to-emerald-700 px-3 py-2 flex items-center justify-between flex-shrink-0">
@@ -512,10 +506,8 @@ const CoinCard = ({ coin }: { coin: PumpCoin }) => {
           </div>
         </div>
 
-        {/* COLUMN 4 - Trading + Challenge */}
         <div className="col-span-3 flex flex-col gap-2 overflow-hidden">
           
-          {/* Challenge Card */}
           <div className="bg-[#111] rounded-lg border border-gray-800 p-3 flex-shrink-0">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-bold text-gray-400 uppercase">Prop Challenge</h3>
@@ -551,7 +543,6 @@ const CoinCard = ({ coin }: { coin: PumpCoin }) => {
             ) : null}
           </div>
 
-          {/* Trading Panel */}
           <div className="bg-[#111] rounded-lg border border-gray-800 p-3 flex-1 flex flex-col overflow-hidden">
             <div className="grid grid-cols-2 gap-1.5 mb-3 flex-shrink-0">
               <button
@@ -578,7 +569,6 @@ const CoinCard = ({ coin }: { coin: PumpCoin }) => {
 
             {selectedCoin ? (
               <div className="flex-1 flex flex-col overflow-y-auto">
-                {/* Selected Token Display */}
                 <div className="flex items-center gap-2 mb-3 p-2 bg-gray-900/50 rounded-lg flex-shrink-0">
                   <img src={selectedCoin.image_uri} alt={selectedCoin.name} className="w-8 h-8 rounded-lg" />
                   <div className="flex-1 min-w-0">
@@ -598,7 +588,6 @@ const CoinCard = ({ coin }: { coin: PumpCoin }) => {
                   </button>
                 </div>
 
-                {/* Input */}
                 <div className="mb-2 flex-shrink-0">
                   <label className="text-xs text-gray-500 mb-1 block uppercase font-bold">
                     {tradeMode === 'buy' ? 'You Pay (SOL)' : `You Sell (${selectedCoin.symbol})`}
@@ -622,18 +611,18 @@ const CoinCard = ({ coin }: { coin: PumpCoin }) => {
                       placeholder="0.00"
                       disabled={!publicKey}
                       className="w-full bg-transparent text-xl font-bold outline-none disabled:opacity-50"
-/>
-</div>
-</div>{/* Arrow */}
-            <div className="flex justify-center my-2 flex-shrink-0">
-              <div className="w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center">
-                <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                </svg>
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-center my-2 flex-shrink-0">
+                  <div className="w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center">
+                    <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                      </svg>
               </div>
             </div>
 
-            {/* Output */}
             <div className="mb-3 flex-shrink-0">
               <label className="text-xs text-gray-500 mb-1 block uppercase font-bold">
                 {tradeMode === 'buy' ? `You Receive (${selectedCoin.symbol})` : 'You Get (SOL)'}
@@ -652,7 +641,6 @@ const CoinCard = ({ coin }: { coin: PumpCoin }) => {
               </div>
             </div>
 
-            {/* Info Banner for Pump.fun */}
             {!selectedCoin.complete && tradeMode === 'buy' && (
               <div className="mb-2 p-2 bg-purple-600/10 border border-purple-500/20 rounded-lg flex-shrink-0">
                 <div className="text-xs text-purple-400 font-medium">
@@ -664,7 +652,6 @@ const CoinCard = ({ coin }: { coin: PumpCoin }) => {
               </div>
             )}
 
-            {/* Button */}
             <div className="flex-shrink-0">
               {!publicKey ? (
                 <button disabled className="w-full bg-gray-800 py-2.5 rounded-lg font-bold text-sm cursor-not-allowed">
@@ -715,5 +702,5 @@ const CoinCard = ({ coin }: { coin: PumpCoin }) => {
     </div>
   </div>
 </div>
-);
+    );
 }
