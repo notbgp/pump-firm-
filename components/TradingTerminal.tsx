@@ -67,7 +67,6 @@ export default function TradingTerminal() {
   }, [publicKey, connection]);
 
   useEffect(() => {
-    // Initial fetch from API
     const fetchPumpCoins = async () => {
       try {
         const response = await fetch('/api/pumpfun');
@@ -81,23 +80,19 @@ export default function TradingTerminal() {
 
     fetchPumpCoins();
 
-    // Connect to PumpPortal WebSocket for live updates
     const pumpWs = new PumpPortalWebSocket();
     
     pumpWs.connect((newToken: PumpToken) => {
       console.log('🔥 New Pump.fun token:', newToken.symbol);
       
-      // Add new token to the beginning of the list
       setPumpCoins(prev => {
         const exists = prev.some(coin => coin.mint === newToken.mint);
         if (exists) return prev;
         
-        // Add to top and limit to 100 tokens
         return [newToken, ...prev].slice(0, 100);
       });
     });
 
-    // Cleanup on unmount
     return () => {
       pumpWs.disconnect();
     };
@@ -287,7 +282,7 @@ export default function TradingTerminal() {
   };
 
   const CoinCard = ({ coin }: { coin: PumpCoin }) => {
-    const isNew = Date.now() - coin.created_timestamp < 300000; // New if < 5 min old
+    const isNew = Date.now() - coin.created_timestamp < 300000;
     
     return (
       <div className="w-full p-2.5 border-b border-gray-800/50 hover:bg-gray-900/50 transition-all">
@@ -463,7 +458,9 @@ export default function TradingTerminal() {
                 getNewCoins().map(coin => <CoinCard key={coin.mint} coin={coin} />)
               ) : (
                 <div className="text-center py-12 text-gray-600">
-                  <p className="text-xs">Waiting for new tokens...</p>
+                  <div className="w-12 h-12 mx-auto mb-3 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-xs font-medium">Listening for new tokens...</p>
+                  <p className="text-xs mt-1 text-gray-700">New Pump.fun launches appear instantly</p>
                 </div>
               )}
             </div>
@@ -481,7 +478,7 @@ export default function TradingTerminal() {
                 getGraduatingCoins().map(coin => <CoinCard key={coin.mint} coin={coin} />)
               ) : (
                 <div className="text-center py-12 text-gray-600">
-                  <p className="text-xs">None close yet</p>
+                  <p className="text-xs">None close to graduating yet</p>
                 </div>
               )}
             </div>
@@ -499,7 +496,7 @@ export default function TradingTerminal() {
                 getGraduatedCoins().map(coin => <CoinCard key={coin.mint} coin={coin} />)
               ) : (
                 <div className="text-center py-12 text-gray-600">
-                  <p className="text-xs">None yet</p>
+                  <p className="text-xs">No graduated tokens yet</p>
                 </div>
               )}
             </div>
@@ -618,11 +615,11 @@ export default function TradingTerminal() {
                 <div className="flex justify-center my-2 flex-shrink-0">
                   <div className="w-6 h-6 bg-gray-900 rounded-full flex items-center justify-center">
                     <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                      </svg>
-              </div>
-            </div>
-
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m
+                      0 0l-7-7m7 7V3" />
+</svg>
+</div>
+</div>
             <div className="mb-3 flex-shrink-0">
               <label className="text-xs text-gray-500 mb-1 block uppercase font-bold">
                 {tradeMode === 'buy' ? `You Receive (${selectedCoin.symbol})` : 'You Get (SOL)'}
