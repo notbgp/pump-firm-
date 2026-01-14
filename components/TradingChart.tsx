@@ -35,8 +35,8 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-900">
         <div className="text-center">
-          <div className="text-4xl mb-4">⏳</div>
-          <div className="text-gray-400">Loading chart...</div>
+          <div className="text-4xl mb-4">Loading...</div>
+          <div className="text-gray-400">Fetching token data</div>
         </div>
       </div>
     );
@@ -46,12 +46,20 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-900">
         <div className="text-center">
-          <div className="text-4xl mb-4">❌</div>
+          <div className="text-4xl mb-4">Error</div>
           <div className="text-gray-400">Failed to load token data</div>
         </div>
       </div>
     );
   }
+
+  const priceInSol = tokenData.virtual_sol_reserves && tokenData.virtual_token_reserves
+    ? (tokenData.virtual_sol_reserves / tokenData.virtual_token_reserves).toFixed(8)
+    : '0';
+
+  const bondingProgress = tokenData.virtual_sol_reserves
+    ? ((tokenData.virtual_sol_reserves / 85) * 100).toFixed(1)
+    : '0';
 
   return (
     <div className="h-full bg-gray-900 text-white overflow-y-auto">
@@ -70,14 +78,10 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6">
+      <div className="grid grid-cols-2 gap-4 p-6">
         <div className="bg-gray-800/50 rounded-lg p-4">
           <div className="text-xs text-gray-500 mb-1">Price (SOL)</div>
-          <div className="text-lg font-bold text-cyan-400">
-            {tokenData.virtual_sol_reserves && tokenData.virtual_token_reserves
-              ? (tokenData.virtual_sol_reserves / tokenData.virtual_token_reserves).toFixed(8)
-              : '0'}
-          </div>
+          <div className="text-lg font-bold text-cyan-400">{priceInSol}</div>
         </div>
 
         <div className="bg-gray-800/50 rounded-lg p-4">
@@ -96,16 +100,14 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
 
         <div className="bg-gray-800/50 rounded-lg p-4">
           <div className="text-xs text-gray-500 mb-1">Bonding Progress</div>
-          <div className="text-lg font-bold text-yellow-400">
-            {((tokenData.virtual_sol_reserves / 85) * 100).toFixed(1) || '0'}%
-          </div>
+          <div className="text-lg font-bold text-yellow-400">{bondingProgress}%</div>
         </div>
       </div>
 
       <div className="p-6">
         <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
           <h3 className="text-sm font-bold text-gray-400 mb-3">LIVE CHART</h3>
-          <div className="aspect-video bg-gray-900 rounded flex items-center justify-center">
+          <div className="aspect-video bg-gray-900 rounded">
             <iframe
               src={`https://dexscreener.com/solana/${tokenAddress}?embed=1&theme=dark`}
               className="w-full h-full rounded"
@@ -121,7 +123,7 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
             rel="noopener noreferrer"
             className="px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg text-center font-medium transition-colors"
           >
-            View on Pump.fun
+            Pump.fun
           </a>
           
             href={`https://solscan.io/token/${tokenAddress}`}
@@ -129,23 +131,7 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
             rel="noopener noreferrer"
             className="px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-center font-medium transition-colors"
           >
-            View on Solscan
-          </a>
-          
-            href={`https://dexscreener.com/solana/${tokenAddress}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-center font-medium transition-colors"
-          >
-            DexScreener
-          </a>
-          
-            href={`https://birdeye.so/token/${tokenAddress}?chain=solana`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-3 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-center font-medium transition-colors"
-          >
-            Birdeye
+            Solscan
           </a>
         </div>
       </div>
@@ -156,21 +142,13 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
           <div className="flex justify-between">
             <span className="text-gray-500">Creator:</span>
             <span className="font-mono text-gray-300">
-              {tokenData.creator?.slice(0, 8)}...{tokenData.creator?.slice(-8)}
+              {tokenData.creator ? `${tokenData.creator.slice(0, 8)}...${tokenData.creator.slice(-8)}` : 'N/A'}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Total Supply:</span>
             <span className="text-gray-300">
               {tokenData.total_supply?.toLocaleString() || 'N/A'}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-500">Created:</span>
-            <span className="text-gray-300">
-              {tokenData.created_timestamp 
-                ? new Date(tokenData.created_timestamp).toLocaleString()
-                : 'N/A'}
             </span>
           </div>
         </div>
