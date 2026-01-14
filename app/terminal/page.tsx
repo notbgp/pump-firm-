@@ -1,53 +1,48 @@
 'use client';
 
 import { useState } from 'react';
-import PumpFunPulse from '@/components/PumpFunPulse';
+import PumpFunPulseHelius from '@/components/PumpFunPulseHelius';
 import TradingChart from '@/components/TradingChart';
 
 export default function TerminalPage() {
-  const [activeTab, setActiveTab] = useState<'pulse' | 'chart' | 'portfolio'>('pulse');
+  const [selectedToken, setSelectedToken] = useState<string | null>(null);
 
   return (
     <div className="h-screen bg-gray-950 flex flex-col">
-      {/* Top Navigation */}
-      <div className="flex gap-2 p-4 border-b border-gray-800">
-        <button
-          onClick={() => setActiveTab('pulse')}
-          className={`px-4 py-2 rounded ${
-            activeTab === 'pulse' 
-              ? 'bg-purple-600 text-white' 
-              : 'bg-gray-800 text-gray-400 hover:text-white'
-          }`}
-        >
-          🔴 Pulse
-        </button>
-        <button
-          onClick={() => setActiveTab('chart')}
-          className={`px-4 py-2 rounded ${
-            activeTab === 'chart' 
-              ? 'bg-purple-600 text-white' 
-              : 'bg-gray-800 text-gray-400 hover:text-white'
-          }`}
-        >
-          📊 Chart
-        </button>
-        <button
-          onClick={() => setActiveTab('portfolio')}
-          className={`px-4 py-2 rounded ${
-            activeTab === 'portfolio' 
-              ? 'bg-purple-600 text-white' 
-              : 'bg-gray-800 text-gray-400 hover:text-white'
-          }`}
-        >
-          💼 Portfolio
-        </button>
+      {/* Top Bar */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-800 bg-gray-900">
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+            🚀 Pump Firm Terminal
+          </h1>
+        </div>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 overflow-hidden">
-        {activeTab === 'pulse' && <PumpFunPulse />}
-        {activeTab === 'chart' && <TradingChart />}
-        {activeTab === 'portfolio' && <div>Portfolio content</div>}
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar - New Tokens */}
+        <div className="w-96 border-r border-gray-800">
+          <PumpFunPulseHelius 
+            onTokenSelect={(mint, token) => {
+              setSelectedToken(mint);
+              console.log('Selected token:', token);
+            }}
+          />
+        </div>
+
+        {/* Main Area - Chart */}
+        <div className="flex-1 overflow-hidden">
+          {selectedToken ? (
+            <TradingChart tokenAddress={selectedToken} />
+          ) : (
+            <div className="h-full flex items-center justify-center text-gray-500">
+              <div className="text-center">
+                <div className="text-6xl mb-4">📊</div>
+                <p className="text-lg">Select a token to view chart</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
