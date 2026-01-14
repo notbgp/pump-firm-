@@ -14,7 +14,6 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
     async function fetchTokenData() {
       setLoading(true);
       try {
-        // Fetch token data from Pump.fun API
         const response = await fetch(`https://frontend-api.pump.fun/coins/${tokenAddress}`);
         const data = await response.json();
         setTokenData(data);
@@ -27,7 +26,6 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
 
     if (tokenAddress) {
       fetchTokenData();
-      // Refresh every 10 seconds
       const interval = setInterval(fetchTokenData, 10000);
       return () => clearInterval(interval);
     }
@@ -57,7 +55,6 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
 
   return (
     <div className="h-full bg-gray-900 text-white overflow-y-auto">
-      {/* Token Header */}
       <div className="p-6 border-b border-gray-800 bg-gray-950">
         <div className="flex items-start justify-between">
           <div>
@@ -73,7 +70,6 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
         </div>
       </div>
 
-      {/* Token Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-6">
         <div className="bg-gray-800/50 rounded-lg p-4">
           <div className="text-xs text-gray-500 mb-1">Price (SOL)</div>
@@ -106,7 +102,6 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
         </div>
       </div>
 
-      {/* Chart Embed (DexScreener) */}
       <div className="p-6">
         <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
           <h3 className="text-sm font-bold text-gray-400 mb-3">LIVE CHART</h3>
@@ -119,7 +114,6 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
           </div>
         </div>
 
-        {/* Quick Links */}
         <div className="grid grid-cols-2 gap-3">
           
             href={`https://pump.fun/${tokenAddress}`}
@@ -156,7 +150,6 @@ export default function TradingChart({ tokenAddress }: TradingChartProps) {
         </div>
       </div>
 
-      {/* Token Info */}
       <div className="p-6 border-t border-gray-800">
         <h3 className="text-sm font-bold text-gray-400 mb-3">TOKEN INFO</h3>
         <div className="space-y-2 text-sm">
