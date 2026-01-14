@@ -27,24 +27,25 @@ export async function GET(request: NextRequest) {
 
         console.log('🔌 Connecting to Helius gRPC...');
 
-        const subscribeRequest: SubscribeRequest = {
-          slots: {},
-          accounts: {},
-          transactions: {
-            pumpfun: {
-              vote: false,
-              failed: false,
-              accountInclude: [PUMP_PROGRAM_ID],
-              accountExclude: [],
-              accountRequired: [PUMP_PROGRAM_ID],
-            },
-          },
-          blocks: {},
-          blocksMeta: {},
-          entry: {},
-          accountsDataSlice: [],
-          commitment: CommitmentLevel.CONFIRMED,
-        };
+const subscribeRequest: SubscribeRequest = {
+  slots: {},
+  accounts: {},
+  transactions: {
+    pumpfun: {
+      vote: false,
+      failed: false,
+      accountInclude: [PUMP_PROGRAM_ID],
+      accountExclude: [],
+      accountRequired: [PUMP_PROGRAM_ID],
+    },
+  },
+  transactionsStatus: {},
+  blocks: {},
+  blocksMeta: {},
+  entry: {},
+  accountsDataSlice: [],
+  commitment: CommitmentLevel.CONFIRMED,
+};
 
         grpcStream = await grpcClient.subscribe(subscribeRequest);
         console.log('✅ Connected to Helius gRPC');
